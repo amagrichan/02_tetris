@@ -33,7 +33,7 @@
         html, body {
             width: 100%;
             height: 100%;
-            overflow: hidden; /* スクロールを防止 */
+            overflow: hidden;
         }
 
         body {
@@ -63,7 +63,7 @@
             border-radius: 20px;
             box-shadow: 0 8px 24px var(--shadow-color);
             border: 3px solid #ffeaa7;
-            max-height: 65vh; /* 画面全体の高さに合わせて可変 */
+            max-height: 65vh;
             align-items: center;
         }
 
@@ -81,7 +81,7 @@
         canvas#tetris {
             height: 100%;
             width: auto;
-            max-height: 55vh; /* 画面高さに合わせて自動伸縮 */
+            max-height: 55vh;
             aspect-ratio: 1 / 2;
             display: block;
         }
@@ -184,6 +184,61 @@
         .ctrl-btn.drop:active {
             box-shadow: 0 0 0 #00b894;
         }
+
+        /* ✨ クリアポップアップ（モーダル）のスタイル ✨ */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(108, 92, 231, 0.4);
+            backdrop-filter: blur(4px);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .modal-card {
+            background: white;
+            padding: 20px;
+            border-radius: 24px;
+            text-align: center;
+            max-width: 320px;
+            width: 90%;
+            border: 4px solid #ffeaa7;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.7); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .modal-title {
+            font-size: 1.3rem;
+            color: var(--accent-color);
+            margin-bottom: 10px;
+        }
+
+        .clear-img {
+            width: 100%;
+            max-height: 200px;
+            object-fit: cover;
+            border-radius: 16px;
+            margin-bottom: 12px;
+            border: 3px solid #f1f2f6;
+        }
+
+        .clear-message {
+            font-size: 1.1rem;
+            color: var(--text-color);
+            margin-bottom: 15px;
+            font-weight: 800;
+        }
     </style>
 </head>
 <body>
@@ -223,6 +278,16 @@
         <button class="ctrl-btn drop" id="btn-down">DOWN ⏬</button>
     </div>
 
+    <!-- ✨ クリア用ポップアップモーダル ✨ -->
+    <div id="clear-modal" class="modal-overlay">
+        <div class="modal-card">
+            <div class="modal-title">🎉 STAGE CLEAR 🎉</div>
+            <img src="IMG_4049.jpeg" alt="Clear Image" class="clear-img">
+            <div class="clear-message">おめでとう！がんばったね♩</div>
+            <button id="modal-close-btn" class="btn">つぎもがんばる 💕</button>
+        </div>
+    </div>
+
     <script>
         const canvas = document.getElementById('tetris');
         const context = canvas.getContext('2d');
@@ -232,6 +297,9 @@
         const BLOCK_SIZE = 24;
         const COLS = 10;
         const ROWS = 20;
+
+        // ★ クリア条件（ここでは100点に設定。お好みで数値を変更できます！）
+        const CLEAR_SCORE = 100;
 
         context.scale(BLOCK_SIZE, BLOCK_SIZE);
         nextContext.scale(20, 20);
@@ -279,6 +347,7 @@
         let dropInterval = 1000;
         let lastTime = 0;
         let isGameOver = false;
+        let isCleared = false;
         let isPaused = true;
         let animationId = null;
 
@@ -400,9 +469,11 @@
             if (collide(board, player)) {
                 player.pos.y--;
                 merge(board, player);
-                playerReset();
                 arenaSweep();
                 updateScore();
+                if (!isCleared) {
+                    playerReset();
+                }
             }
             dropCounter = 0;
         }
@@ -455,7 +526,25 @@
         function updateScore() {
             document.getElementById('score').innerText = player.score;
             document.getElementById('lines').innerText = player.lines;
+
+            // ✨ クリア判定（設定したクリアスコアに到達した場合） ✨
+            if (player.score >= CLEAR_SCORE && !isCleared) {
+                showClearModal();
+            }
         }
+
+        // ✨ ポップアップ表示機能 ✨
+        function showClearModal() {
+            isCleared = true;
+            isPaused = true;
+            cancelAnimationFrame(animationId);
+            document.getElementById('clear-modal').style.display = 'flex';
+            document.getElementById('start-btn').innerText = 'RESTART 🔄';
+        }
+
+        document.getElementById('modal-close-btn').addEventListener('click', () => {
+            document.getElementById('clear-modal').style.display = 'none';
+        });
 
         function update(time = 0) {
             if (isPaused) return;
@@ -478,6 +567,7 @@
             player.lines = 0;
             dropInterval = 1000;
             isGameOver = false;
+            isCleared = false;
             nextType = '';
             updateScore();
             playerReset();
@@ -494,7 +584,7 @@
         });
 
         document.getElementById('start-btn').addEventListener('click', () => {
-            if (isGameOver) {
+            if (isGameOver || isCleared) {
                 resetGame();
             }
             if (isPaused) {
